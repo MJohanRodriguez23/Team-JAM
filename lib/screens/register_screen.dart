@@ -1,20 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:to_do_ufpso/services/auth_service.dart';
+import 'package:to_do_ufpso/services/firebase_auth_service.dart';
 import 'package:to_do_ufpso/utils/app_theme.dart';
 import 'package:to_do_ufpso/utils/validators.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({super.key, AuthService? authService})
+    : authService = authService ?? const _DefaultAuthService();
+
+  final AuthService authService;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
+class _DefaultAuthService implements AuthService {
+  const _DefaultAuthService();
+
+  @override
+  Future<void> register({required String email, required String password}) {
+    return FirebaseAuthService().register(email: email, password: password);
+  }
+}
+
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  
+
   bool _isLoading = false;
 
   @override
@@ -24,23 +38,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _register() async {
-    // Validar el formulario
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+  Future<void> _register() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
-      // Simular un tiempo de carga (Mock)
-      await Future.delayed(const Duration(seconds: 1));
+    setState(() {
+      _isLoading = true;
+    });
 
-      setState(() {
-        _isLoading = false;
-      });
+    try {
+      await widget.authService.register(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
-      // Redirigir al Home después del "registro" si el widget sigue activo
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pushReplacementNamed('/home');
+    } on AuthFailure catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
       if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/home');
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -48,9 +78,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Crear Cuenta'),
-      ),
+      appBar: AppBar(title: const Text('Crear Cuenta')),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -109,7 +137,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     onPressed: _isLoading
                         ? null
                         : () {
-                            Navigator.of(context).pushReplacementNamed('/login');
+                            Navigator.of(
+                              context,
+                            ).pushReplacementNamed('/login');
                           },
                     child: const Text('Ya tienes cuenta? Inicia sesion'),
                   ),
