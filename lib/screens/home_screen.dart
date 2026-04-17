@@ -1,16 +1,81 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:to_do_ufpso/models/task.dart';
+import 'package:to_do_ufpso/services/firestore_task_repository.dart';
+import 'package:to_do_ufpso/services/firebase_bootstrap.dart';
+import 'package:to_do_ufpso/services/task_repository.dart';
 import 'package:to_do_ufpso/utils/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, TaskRepository? taskRepository})
+    : taskRepository = taskRepository ?? const _DefaultTaskRepository();
+
+  final TaskRepository taskRepository;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+class _DefaultTaskRepository implements TaskRepository {
+  const _DefaultTaskRepository();
+
+  @override
+  Future<Task> createTask(String title) {
+    return FirestoreTaskRepository().createTask(title);
+  }
+
+  @override
+  Future<List<Task>> loadTasks() {
+    return FirestoreTaskRepository().loadTasks();
+  }
+
+  @override
+  Future<Task> updateTask(Task task) {
+    return FirestoreTaskRepository().updateTask(task);
+  }
+}
+
 class _HomeScreenState extends State<HomeScreen> {
   final List<Task> _tasks = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTasks();
+  }
+
+  Future<void> _loadTasks() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final tasks = await widget.taskRepository.loadTasks();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _tasks
+          ..clear()
+          ..addAll(tasks);
+      });
+    } on TaskFailure catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(error.message);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   Future<void> _showCreateTaskDialog() async {
     await showDialog<void>(
@@ -18,6 +83,51 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (dialogContext) {
         String? errorText;
         String taskTitle = '';
+        bool isSubmitting = false;
+
+        Future<void> submitTask(
+          void Function(void Function()) setDialogState,
+        ) async {
+          final trimmedTitle = taskTitle.trim();
+
+          if (trimmedTitle.isEmpty) {
+            setDialogState(() {
+              errorText = 'Ingresa un titulo para crear la tarea';
+            });
+            return;
+          }
+
+          setDialogState(() {
+            errorText = null;
+            isSubmitting = true;
+          });
+
+          try {
+            final savedTask = await widget.taskRepository.createTask(
+              trimmedTitle,
+            );
+
+            if (!mounted) {
+              return;
+            }
+
+            setState(() {
+              _tasks.insert(0, savedTask);
+            });
+
+            Navigator.of(dialogContext).pop();
+          } on TaskFailure catch (error) {
+            if (!mounted) {
+              return;
+            }
+
+            setDialogState(() {
+              isSubmitting = false;
+            });
+
+            _showMessage(error.message);
+          }
+        }
 
         return StatefulBuilder(
           builder: (context, setDialogState) {
@@ -26,6 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
               content: TextFormField(
                 key: const Key('task_title_field'),
                 autofocus: true,
+                enabled: !isSubmitting,
                 textInputAction: TextInputAction.done,
                 decoration: InputDecoration(
                   labelText: 'Titulo de la tarea',
@@ -40,26 +151,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     });
                   }
                 },
-                onFieldSubmitted: (_) => _createTask(
-                  dialogContext: dialogContext,
-                  title: taskTitle,
-                  setDialogState: setDialogState,
-                  setErrorText: (value) => errorText = value,
-                ),
+                onFieldSubmitted: (_) => submitTask(setDialogState),
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  onPressed: isSubmitting
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
                   child: const Text('Cancelar'),
                 ),
                 ElevatedButton(
-                  onPressed: () => _createTask(
-                    dialogContext: dialogContext,
-                    title: taskTitle,
-                    setDialogState: setDialogState,
-                    setErrorText: (value) => errorText = value,
-                  ),
-                  child: const Text('Crear'),
+                  onPressed: isSubmitting
+                      ? null
+                      : () => submitTask(setDialogState),
+                  child: isSubmitting
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Crear'),
                 ),
               ],
             );
@@ -69,38 +180,46 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _createTask({
-    required BuildContext dialogContext,
-    required String title,
-    required void Function(void Function()) setDialogState,
-    required void Function(String?) setErrorText,
-  }) {
-    final trimmedTitle = title.trim();
+  Future<void> _toggleTaskStatus(Task task) async {
+    final updatedTask = task.copyWith(isCompleted: !task.isCompleted);
 
-    if (trimmedTitle.isEmpty) {
-      setDialogState(() {
-        setErrorText('Ingresa un titulo para crear la tarea');
+    try {
+      await widget.taskRepository.updateTask(updatedTask);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        final index = _tasks.indexWhere((item) => item.id == task.id);
+        if (index != -1) {
+          _tasks[index] = updatedTask;
+        }
       });
-      return;
+    } on TaskFailure catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(error.message);
     }
-
-    setState(() {
-      _tasks.insert(
-        0,
-        Task(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          title: trimmedTitle,
-        ),
-      );
-    });
-
-    Navigator.of(dialogContext).pop();
   }
 
-  void _toggleTaskStatus(Task task) {
-    setState(() {
-      task.toggleCompleted();
-    });
+  Future<void> _logout() async {
+    final navigator = Navigator.of(context);
+
+    navigator.pushReplacementNamed('/login');
+
+    try {
+      await FirebaseBootstrap.ensureInitialized();
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {}
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -109,18 +228,15 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Mis Tareas'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.exit_to_app),
-            onPressed: () {
-              Navigator.of(context).pushReplacementNamed('/login');
-            },
-          ),
+          IconButton(icon: const Icon(Icons.exit_to_app), onPressed: _logout),
         ],
       ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: _tasks.isEmpty
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _tasks.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -140,7 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 24),
                       const Text(
-                        'Aun no tienes tareas locales',
+                        'Aun no tienes tareas guardadas',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -150,7 +266,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Crea tu primera tarea para empezar a organizar tus actividades.',
+                        'Crea tu primera tarea para guardarla en tu cuenta y encontrarla luego.',
                         style: TextStyle(color: AppColors.gray),
                         textAlign: TextAlign.center,
                       ),
@@ -167,7 +283,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Tus tareas locales',
+                      'Tus tareas',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -176,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Crea tareas rapidas para organizar tus actividades.',
+                      'Tus tareas se cargan desde Firestore para esta cuenta.',
                       style: TextStyle(color: AppColors.gray),
                     ),
                     const SizedBox(height: 20),

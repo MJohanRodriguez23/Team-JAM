@@ -1,9 +1,11 @@
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:to_do_ufpso/models/task.dart';
 import 'package:to_do_ufpso/screens/home_screen.dart';
 import 'package:to_do_ufpso/screens/login_screen.dart';
 import 'package:to_do_ufpso/services/auth_service.dart';
+import 'package:to_do_ufpso/services/task_repository.dart';
 
 void main() {
   testWidgets('LoginScreen valida campos vacios e invalidos', (
@@ -45,13 +47,15 @@ void main() {
     'LoginScreen inicia sesion y navega a home con credenciales validas',
     (WidgetTester tester) async {
       final fakeAuthService = _FakeAuthService();
+      final fakeTaskRepository = _FakeTaskRepository();
 
       await tester.pumpWidget(
         MaterialApp(
           initialRoute: '/login',
           routes: {
             '/login': (context) => LoginScreen(authService: fakeAuthService),
-            '/home': (context) => const HomeScreen(),
+            '/home': (context) =>
+                HomeScreen(taskRepository: fakeTaskRepository),
           },
         ),
       );
@@ -71,7 +75,7 @@ void main() {
       expect(fakeAuthService.lastEmail, 'estudiante@ufpso.edu.co');
       expect(fakeAuthService.lastPassword, '123456');
       expect(find.text('Mis Tareas'), findsOneWidget);
-      expect(find.text('Aun no tienes tareas locales'), findsOneWidget);
+      expect(find.text('Aun no tienes tareas guardadas'), findsOneWidget);
     },
   );
 
@@ -130,4 +134,15 @@ class _FakeAuthService implements AuthService {
     required String email,
     required String password,
   }) async {}
+}
+
+class _FakeTaskRepository implements TaskRepository {
+  @override
+  Future<Task> createTask(String title) async => Task(id: '1', title: title);
+
+  @override
+  Future<List<Task>> loadTasks() async => [];
+
+  @override
+  Future<Task> updateTask(Task task) async => task;
 }

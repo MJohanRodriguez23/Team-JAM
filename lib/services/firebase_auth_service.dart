@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:to_do_ufpso/firebase_options.dart';
 import 'package:to_do_ufpso/services/auth_service.dart';
+import 'package:to_do_ufpso/services/firebase_bootstrap.dart';
 
 class FirebaseAuthService implements AuthService {
   FirebaseAuthService({FirebaseAuth? firebaseAuth})
@@ -61,14 +61,7 @@ class FirebaseAuthService implements AuthService {
     }
 
     try {
-      final options = DefaultFirebaseOptions.currentPlatform;
-
-      if (options != null) {
-        await Firebase.initializeApp(options: options);
-        return;
-      }
-
-      await Firebase.initializeApp();
+      await FirebaseBootstrap.ensureInitialized();
     } on UnsupportedError {
       throw const AuthFailure(
         'Firebase no esta configurado todavia. Sigue la guia en docs/09_registro_real.md.',

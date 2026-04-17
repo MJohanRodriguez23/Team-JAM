@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:to_do_ufpso/models/task.dart';
 import 'package:to_do_ufpso/screens/home_screen.dart';
 import 'package:to_do_ufpso/screens/login_screen.dart';
 import 'package:to_do_ufpso/screens/register_screen.dart';
 import 'package:to_do_ufpso/services/auth_service.dart';
+import 'package:to_do_ufpso/services/task_repository.dart';
 
 void main() {
   testWidgets('HU-03 permite navegar entre login, registro y home', (
     WidgetTester tester,
   ) async {
     final fakeAuthService = _FakeAuthService();
+    final fakeTaskRepository = _FakeTaskRepository();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -17,7 +20,7 @@ void main() {
         routes: {
           '/login': (context) => LoginScreen(authService: fakeAuthService),
           '/register': (context) => const RegisterScreen(),
-          '/home': (context) => const HomeScreen(),
+          '/home': (context) => HomeScreen(taskRepository: fakeTaskRepository),
         },
       ),
     );
@@ -64,4 +67,15 @@ class _FakeAuthService implements AuthService {
     required String email,
     required String password,
   }) async {}
+}
+
+class _FakeTaskRepository implements TaskRepository {
+  @override
+  Future<Task> createTask(String title) async => Task(id: '1', title: title);
+
+  @override
+  Future<List<Task>> loadTasks() async => [];
+
+  @override
+  Future<Task> updateTask(Task task) async => task;
 }
