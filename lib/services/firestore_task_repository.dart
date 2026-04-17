@@ -8,11 +8,17 @@ class FirestoreTaskRepository implements TaskRepository {
   FirestoreTaskRepository({
     FirebaseFirestore? firestore,
     FirebaseAuth? firebaseAuth,
+    String? currentUserId,
+    Future<void> Function()? ensureInitialized,
   }) : _firestore = firestore,
-       _firebaseAuth = firebaseAuth;
+       _firebaseAuth = firebaseAuth,
+       _currentUserId = currentUserId,
+       _ensureInitialized = ensureInitialized;
 
   final FirebaseFirestore? _firestore;
   final FirebaseAuth? _firebaseAuth;
+  final String? _currentUserId;
+  final Future<void> Function()? _ensureInitialized;
 
   FirebaseFirestore get _db => _firestore ?? FirebaseFirestore.instance;
   FirebaseAuth get _auth => _firebaseAuth ?? FirebaseAuth.instance;
@@ -85,7 +91,7 @@ class FirestoreTaskRepository implements TaskRepository {
 
   Future<void> _ensureReady() async {
     try {
-      await FirebaseBootstrap.ensureInitialized();
+      await (_ensureInitialized ?? FirebaseBootstrap.ensureInitialized)();
     } on UnsupportedError {
       throw const TaskFailure(
         'Firestore no esta configurado para esta plataforma.',
@@ -96,7 +102,7 @@ class FirestoreTaskRepository implements TaskRepository {
       );
     }
 
-    if (_auth.currentUser == null) {
+    if (_resolvedUserId == null) {
       throw const TaskFailure(
         'Debes iniciar sesion para guardar y consultar tus tareas.',
       );
@@ -104,7 +110,9 @@ class FirestoreTaskRepository implements TaskRepository {
   }
 
   CollectionReference<Map<String, dynamic>> get _tasksCollection {
-    final userId = _auth.currentUser!.uid;
+    final userId = _resolvedUserId!;
     return _db.collection('users').doc(userId).collection('tasks');
   }
+
+  String? get _resolvedUserId => _currentUserId ?? _auth.currentUser?.uid;
 }
