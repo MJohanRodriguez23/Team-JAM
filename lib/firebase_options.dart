@@ -41,46 +41,47 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDdRrDa7RxKGRD7aS9D0x2peSyOQ3oXlbQ',
-    appId: '1:1018811833050:web:c3367d736a7b732a04a3e3',
-    messagingSenderId: '1018811833050',
-    projectId: 'to-do-ufpso',
-    authDomain: 'to-do-ufpso.firebaseapp.com',
-    storageBucket: 'to-do-ufpso.firebasestorage.app',
+    apiKey: 'AIzaSyAtfkLK6JgiwDl4MulwWT9Yu64J7QqkJrs',
+    appId: '1:951465249844:web:2b9a61117d5419537d0e61',
+    messagingSenderId: '951465249844',
+    projectId: 'to-do-ufpso-72948',
+    authDomain: 'to-do-ufpso-72948.firebaseapp.com',
+    storageBucket: 'to-do-ufpso-72948.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyChOlEVDOv3t4ZDvlITIlcXU-5-fQn5SUA',
-    appId: '1:1018811833050:android:d47e5489e8bfeba304a3e3',
-    messagingSenderId: '1018811833050',
-    projectId: 'to-do-ufpso',
-    storageBucket: 'to-do-ufpso.firebasestorage.app',
+    apiKey: 'AIzaSyCHZRwmHQfrxydBIX2YycwBJIGkb0xeyVM',
+    appId: '1:951465249844:android:bee3c7ec5dd193a07d0e61',
+    messagingSenderId: '951465249844',
+    projectId: 'to-do-ufpso-72948',
+    storageBucket: 'to-do-ufpso-72948.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyA08HenV0tw0vbLuEY79LDQ6bPYK1Obcdk',
-    appId: '1:1018811833050:ios:ec3dc582fba4d45004a3e3',
-    messagingSenderId: '1018811833050',
-    projectId: 'to-do-ufpso',
-    storageBucket: 'to-do-ufpso.firebasestorage.app',
+    apiKey: 'AIzaSyDDghudYNJVmUsV5Vkmz0Las_lvO9RA-lU',
+    appId: '1:951465249844:ios:31fe5aec1ac0b2867d0e61',
+    messagingSenderId: '951465249844',
+    projectId: 'to-do-ufpso-72948',
+    storageBucket: 'to-do-ufpso-72948.firebasestorage.app',
     iosBundleId: 'com.example.toDoUfpso',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyA08HenV0tw0vbLuEY79LDQ6bPYK1Obcdk',
-    appId: '1:1018811833050:ios:ec3dc582fba4d45004a3e3',
-    messagingSenderId: '1018811833050',
-    projectId: 'to-do-ufpso',
-    storageBucket: 'to-do-ufpso.firebasestorage.app',
+    apiKey: 'AIzaSyDDghudYNJVmUsV5Vkmz0Las_lvO9RA-lU',
+    appId: '1:951465249844:ios:31fe5aec1ac0b2867d0e61',
+    messagingSenderId: '951465249844',
+    projectId: 'to-do-ufpso-72948',
+    storageBucket: 'to-do-ufpso-72948.firebasestorage.app',
     iosBundleId: 'com.example.toDoUfpso',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDdRrDa7RxKGRD7aS9D0x2peSyOQ3oXlbQ',
-    appId: '1:1018811833050:web:c336ee3ee55a509804a3e3',
-    messagingSenderId: '1018811833050',
-    projectId: 'to-do-ufpso',
-    authDomain: 'to-do-ufpso.firebaseapp.com',
-    storageBucket: 'to-do-ufpso.firebasestorage.app',
+    apiKey: 'AIzaSyAtfkLK6JgiwDl4MulwWT9Yu64J7QqkJrs',
+    appId: '1:951465249844:web:f98c52023a850fd07d0e61',
+    messagingSenderId: '951465249844',
+    projectId: 'to-do-ufpso-72948',
+    authDomain: 'to-do-ufpso-72948.firebaseapp.com',
+    storageBucket: 'to-do-ufpso-72948.firebasestorage.app',
   );
+
 }
