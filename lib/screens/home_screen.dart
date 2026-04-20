@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:to_do_ufpso/models/task.dart';
 import 'package:to_do_ufpso/services/firestore_task_repository.dart';
 import 'package:to_do_ufpso/services/firebase_bootstrap.dart';
@@ -20,6 +21,11 @@ class _DefaultTaskRepository implements TaskRepository {
   const _DefaultTaskRepository();
 
   @override
+  Stream<TaskSyncSnapshot> watchTasks() {
+    return FirestoreTaskRepository().watchTasks();
+  }
+
+  @override
   Future<Task> createTask(String title) {
     return FirestoreTaskRepository().createTask(title);
   }
@@ -38,6 +44,8 @@ class _DefaultTaskRepository implements TaskRepository {
 class _HomeScreenState extends State<HomeScreen> {
   final List<Task> _tasks = [];
   bool _isLoading = true;
+  StreamSubscription<TaskSyncSnapshot>? _taskSubscription;
+  bool _hadPendingWrites = false;
 
   @override
   void initState() {
@@ -45,36 +53,60 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadTasks();
   }
 
+  @override
+  void dispose() {
+    _taskSubscription?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadTasks() async {
     setState(() {
       _isLoading = true;
     });
 
-    try {
-      final tasks = await widget.taskRepository.loadTasks();
+    await _taskSubscription?.cancel();
+    _taskSubscription = widget.taskRepository.watchTasks().listen(
+      _handleSyncSnapshot,
+      onError: (error) {
+        if (!mounted) {
+          return;
+        }
 
-      if (!mounted) {
-        return;
-      }
+        final message = error is TaskFailure
+            ? error.message
+            : 'No se pudieron sincronizar tus tareas. Intenta nuevamente.';
+        _showMessage(message);
 
-      setState(() {
-        _tasks
-          ..clear()
-          ..addAll(tasks);
-      });
-    } on TaskFailure catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(error.message);
-    } finally {
-      if (mounted) {
         setState(() {
           _isLoading = false;
         });
-      }
+      },
+    );
+  }
+
+  void _handleSyncSnapshot(TaskSyncSnapshot snapshot) {
+    if (!mounted) {
+      return;
     }
+
+    setState(() {
+      _tasks
+        ..clear()
+        ..addAll(snapshot.tasks);
+      _isLoading = false;
+    });
+
+    if (!_hadPendingWrites && snapshot.hasPendingWrites) {
+      _showMessage(
+        'Cambios guardados localmente. Se sincronizaran cuando vuelva la conexion.',
+      );
+    }
+
+    if (_hadPendingWrites && !snapshot.hasPendingWrites) {
+      _showMessage('Cambios sincronizados con Firestore.');
+    }
+
+    _hadPendingWrites = snapshot.hasPendingWrites;
   }
 
   Future<void> _showCreateTaskDialog() async {
@@ -103,17 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
           });
 
           try {
-            final savedTask = await widget.taskRepository.createTask(
-              trimmedTitle,
-            );
-
-            if (!mounted) {
-              return;
-            }
-
-            setState(() {
-              _tasks.insert(0, savedTask);
-            });
+            await widget.taskRepository.createTask(trimmedTitle);
 
             Navigator.of(dialogContext).pop();
           } on TaskFailure catch (error) {
@@ -185,17 +207,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       await widget.taskRepository.updateTask(updatedTask);
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        final index = _tasks.indexWhere((item) => item.id == task.id);
-        if (index != -1) {
-          _tasks[index] = updatedTask;
-        }
-      });
     } on TaskFailure catch (error) {
       if (!mounted) {
         return;
@@ -217,9 +228,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.removeCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override

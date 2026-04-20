@@ -24,6 +24,29 @@ class FirestoreTaskRepository implements TaskRepository {
   FirebaseAuth get _auth => _firebaseAuth ?? FirebaseAuth.instance;
 
   @override
+  Stream<TaskSyncSnapshot> watchTasks() async* {
+    await _ensureReady();
+
+    yield* _tasksCollection
+        .orderBy('createdAt', descending: true)
+        .snapshots(includeMetadataChanges: true)
+        .map(
+          (snapshot) => TaskSyncSnapshot(
+            tasks: snapshot.docs
+                .map((doc) => Task.fromMap(doc.id, doc.data()))
+                .toList(),
+            hasPendingWrites: snapshot.metadata.hasPendingWrites,
+            isFromCache: snapshot.metadata.isFromCache,
+          ),
+        )
+        .handleError((_) {
+          throw const TaskFailure(
+            'No se pudieron sincronizar tus tareas. Intenta nuevamente.',
+          );
+        });
+  }
+
+  @override
   Future<Task> createTask(String title) async {
     await _ensureReady();
 

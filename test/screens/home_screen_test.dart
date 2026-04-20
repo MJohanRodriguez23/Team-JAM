@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:async';
 import 'package:to_do_ufpso/models/task.dart';
 import 'package:to_do_ufpso/screens/home_screen.dart';
 import 'package:to_do_ufpso/services/task_repository.dart';
@@ -154,15 +155,70 @@ void main() {
       expect(find.byIcon(Icons.radio_button_unchecked), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'HomeScreen informa cuando hay cambios pendientes y cuando se sincronizan al reconectar',
+    (WidgetTester tester) async {
+      final repository = _FakeTaskRepository();
+
+      await tester.pumpWidget(
+        MaterialApp(home: HomeScreen(taskRepository: repository)),
+      );
+      await tester.pumpAndSettle();
+
+      await repository.emitSyncState(
+        TaskSyncSnapshot(
+          tasks: [Task(id: '1', title: 'Tarea offline')],
+          hasPendingWrites: true,
+          isFromCache: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Cambios guardados localmente. Se sincronizaran cuando vuelva la conexion.',
+        ),
+        findsOneWidget,
+      );
+
+      await repository.emitSyncState(
+        TaskSyncSnapshot(
+          tasks: [Task(id: '1', title: 'Tarea offline')],
+          hasPendingWrites: false,
+          isFromCache: false,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Cambios sincronizados con Firestore.'), findsOneWidget);
+    },
+  );
 }
 
 class _FakeTaskRepository implements TaskRepository {
   _FakeTaskRepository({List<Task>? initialTasks, this.createError})
-    : _tasks = List<Task>.from(initialTasks ?? []);
+    : _tasks = List<Task>.from(initialTasks ?? []) {
+    _controller = StreamController<TaskSyncSnapshot>.broadcast(
+      onListen: () {
+        _controller.add(TaskSyncSnapshot(tasks: _snapshotTasks()));
+      },
+    );
+  }
 
   final List<Task> _tasks;
   final TaskFailure? createError;
   final List<String> savedTitles = [];
+  late final StreamController<TaskSyncSnapshot> _controller;
+
+  List<Task> _snapshotTasks() => _tasks.map((task) => task.copyWith()).toList();
+
+  Future<void> emitSyncState(TaskSyncSnapshot snapshot) async {
+    _controller.add(snapshot);
+  }
+
+  @override
+  Stream<TaskSyncSnapshot> watchTasks() => _controller.stream;
 
   @override
   Future<Task> createTask(String title) async {
@@ -175,13 +231,20 @@ class _FakeTaskRepository implements TaskRepository {
     savedTitles.add(title);
     final task = Task(id: (_tasks.length + 1).toString(), title: title);
     _tasks.insert(0, task);
+    _controller.add(
+      TaskSyncSnapshot(
+        tasks: _snapshotTasks(),
+        hasPendingWrites: false,
+        isFromCache: false,
+      ),
+    );
     return task;
   }
 
   @override
   Future<List<Task>> loadTasks() async {
     await Future<void>.delayed(const Duration(milliseconds: 10));
-    return _tasks.map((task) => task.copyWith()).toList();
+    return _snapshotTasks();
   }
 
   @override
@@ -191,6 +254,13 @@ class _FakeTaskRepository implements TaskRepository {
     if (index != -1) {
       _tasks[index] = task.copyWith();
     }
+    _controller.add(
+      TaskSyncSnapshot(
+        tasks: _snapshotTasks(),
+        hasPendingWrites: false,
+        isFromCache: false,
+      ),
+    );
     return task;
   }
 }

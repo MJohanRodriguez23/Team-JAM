@@ -71,6 +71,10 @@ class _FakeAuthService implements AuthService {
 
 class _FakeTaskRepository implements TaskRepository {
   @override
+  Stream<TaskSyncSnapshot> watchTasks() =>
+      Stream.value(const TaskSyncSnapshot(tasks: []));
+
+  @override
   Future<Task> createTask(String title) async => Task(id: '1', title: title);
 
   @override
