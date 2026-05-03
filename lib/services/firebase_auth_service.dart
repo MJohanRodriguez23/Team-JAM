@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:to_do_ufpso/firebase_options.dart';
 import 'package:to_do_ufpso/services/auth_service.dart';
 
@@ -30,6 +31,41 @@ class FirebaseAuthService implements AuthService {
     } catch (_) {
       throw const AuthFailure(
         'Ocurrio un error inesperado al crear la cuenta. Intenta nuevamente.',
+      );
+    }
+  }
+
+  @override
+  Future<void> signInWithGitHub() async {
+    await _ensureFirebaseInitialized();
+
+    try {
+      print('Iniciando login con GitHub...');
+      final githubProvider = GithubAuthProvider();
+      print('Provider creado, iniciando signIn...');
+      
+      if (kIsWeb) {
+        print('Usando signInWithPopup para web...');
+        await _auth.signInWithPopup(githubProvider);
+      } else {
+        print('Usando signInWithProvider para móvil/desktop...');
+        await _auth.signInWithProvider(githubProvider);
+      }
+      
+      print('Login con GitHub exitoso');
+    } on FirebaseAuthException catch (error) {
+      print('Error de Firebase Auth en GitHub login: ${error.code} - ${error.message}');
+      throw AuthFailure(_mapFirebaseError(error));
+    } on FirebaseException catch (error) {
+      print('Error de Firebase en GitHub login: ${error.code} - ${error.message}');
+      throw const AuthFailure(
+        'No fue posible conectar con Firebase. Revisa la configuracion del proyecto.',
+      );
+    } catch (error) {
+      print('Error inesperado en GitHub login: $error');
+      print('Tipo de error: ${error.runtimeType}');
+      throw AuthFailure(
+        'Ocurrio un error inesperado al iniciar sesion con GitHub: ${error.toString()}',
       );
     }
   }

@@ -2,6 +2,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:to_do_ufpso/utils/app_theme.dart';
 import 'package:to_do_ufpso/utils/validators.dart';
+import 'package:to_do_ufpso/services/firebase_auth_service.dart';
+import 'package:to_do_ufpso/services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,6 +14,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final AuthService _authService = FirebaseAuthService();
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -47,15 +50,57 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.of(context).pushReplacementNamed('/home');
   }
 
+  Future<void> _signInWithGitHub() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _authService.signInWithGitHub();
+      
+      if (!mounted) return;
+      
+      Navigator.of(context).pushReplacementNamed('/home');
+    } catch (e) {
+      if (!mounted) return;
+      
+      String errorMessage = 'Error al iniciar sesión con GitHub';
+      
+      if (e is AuthFailure) {
+        errorMessage = e.message;
+      } else {
+        // Log del error específico para debugging
+        print('Error en GitHub login: $e');
+        print('Tipo de error: ${e.runtimeType}');
+        errorMessage = 'Error: ${e.toString()}';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+      
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   Widget _buildSocialButton({
     required Widget icon,
     required String semanticLabel,
+    VoidCallback? onPressed,
   }) {
     return SizedBox(
       width: 52,
       height: 52,
       child: OutlinedButton(
-        onPressed: () {},
+        onPressed: _isLoading ? null : onPressed,
         style: OutlinedButton.styleFrom(
           shape: const CircleBorder(),
           padding: EdgeInsets.zero,
@@ -152,6 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       _buildSocialButton(
                         icon: const FaIcon(FontAwesomeIcons.github),
                         semanticLabel: 'GitHub',
+                        onPressed: _signInWithGitHub,
                       ),
                       _buildSocialButton(
                         icon: const FaIcon(FontAwesomeIcons.facebookF),
